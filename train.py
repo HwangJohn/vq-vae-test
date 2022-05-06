@@ -42,7 +42,7 @@ validation_data = datasets.CIFAR10(root="data", train=False, download=True,
                                     transforms.Normalize((0.5,0.5,0.5), (1.0,1.0,1.0))
                                 ]))
 
-@hydra.main(config_path="config", config_name="local")
+@hydra.main(config_path="config")
 def train(cfg: DictConfig):
     writer = SummaryWriter()
 
@@ -66,54 +66,54 @@ def train(cfg: DictConfig):
     decay = cfg.decay
 
     learning_rate = cfg.learning_rate
-                                    
-    training_sample_data = Subset(training_data, np.arange(10))
-    training_sampler = RandomSampler(training_sample_data)
-
-    validation_sapmle_data = Subset(validation_data, np.arange(2))
-    validation_sampler = RandomSampler(validation_sapmle_data)
 
     data_variance = np.var(training_data.data / 255.0)
 
     if mode == 'local':
-        train_dataset = training_sample_data
-        valid_dataset = validation_sapmle_data
-        train_sampler = training_sampler
-        valid_sampler = validation_sampler
-        train_suffle = False      
+        training_sample_data = Subset(training_data, np.arange(10))
+        training_sampler = RandomSampler(training_sample_data)
+
+        validation_sapmle_data = Subset(validation_data, np.arange(2))
+        validation_sampler = RandomSampler(validation_sapmle_data)
+        training_loader = DataLoader(training_sample_data,
+                                    sampler=training_sampler,
+                                    batch_size=train_batch_size, 
+                                    shuffle=False,
+                                    pin_memory=True)
+
+        validation_loader = DataLoader(validation_sapmle_data,
+                                    sampler=validation_sampler,
+                                    batch_size=valid_batch_size,
+                                    shuffle=False,
+                                    pin_memory=True)            
     else:
-        train_dataset = training_data
-        valid_dataset = validation_data
-        train_sampler = None
-        valid_sampler = None
-        train_suffle = True
+        training_loader = DataLoader(training_data,
+                                    batch_size=train_batch_size, 
+                                    shuffle=True,
+                                    pin_memory=True)
+
+        validation_loader = DataLoader(validation_data,
+                                    batch_size=valid_batch_size,
+                                    shuffle=False,
+                                    pin_memory=True)            
 
     print(f"batch_size: {train_batch_size}, num_training_updates: {num_training_updates}")
 
-    training_loader = DataLoader(train_dataset,
-                                sampler=train_sampler,
-                                batch_size=train_batch_size, 
-                                shuffle=train_suffle,
-                                pin_memory=True)
-
-    validation_loader = DataLoader(valid_dataset,
-                                sampler=valid_sampler,
-                                batch_size=valid_batch_size,
-                                shuffle=False,
-                                pin_memory=True)
 
     model = Model(num_hiddens, num_residual_layers, num_residual_hiddens,
                 num_embeddings, embedding_dim, 
                 commitment_cost, decay).to(device)
+    model.to(device)
 
     images, _ = next(iter(validation_loader))
-    writer.add_graph(model, images)
+    writer.add_graph(model, images.to(device))
 
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, amsgrad=False)
 
     model.train()
     train_res_recon_error = []
     train_res_perplexity = []
+ 
 
     for i in xrange(num_training_updates):
         (data, _) = next(iter(training_loader))
@@ -163,6 +163,7 @@ def train(cfg: DictConfig):
             writer.add_histogram('train/data', data, i)
             writer.add_histogram('train/data_recon', data_recon, i)            
             writer.add_histogram('train/_vq_vae/_embedding', model._vq_vae._embedding.weight, i)            
+
 
 if __name__ == "__main__":
     train()
