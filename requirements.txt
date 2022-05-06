@@ -1,0 +1,9 @@
+umap-learn
+matplotlib
+scipy
+six
+Numpy==1.21.4
+Numba==0.53.0
+hydra-core
+hydra_colorlog
+tensorboard
