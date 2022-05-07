@@ -42,7 +42,7 @@ validation_data = datasets.CIFAR10(root="data", train=False, download=True,
                                     transforms.Normalize((0.5,0.5,0.5), (1.0,1.0,1.0))
                                 ]))
 
-@hydra.main(config_path="config")
+@hydra.main(config_path="config", config_name='local')
 def train(cfg: DictConfig):
     writer = SummaryWriter()
 
