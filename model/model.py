@@ -9,7 +9,7 @@ class Residual(nn.Module):
         if activation == "relu":
             self.activation = nn.ReLU(True)
         elif activation == "gelu":
-            self.activation = nn.GELU(True)
+            self.activation = nn.GELU()
 
         self.conv3x3 = nn.Conv2d(in_channels=in_channels,
                         out_channels=num_residual_hiddens,
@@ -52,7 +52,7 @@ class ResidualStack(nn.Module):
         if activation == "relu":
             self.activation = nn.ReLU(True)
         elif activation == "gelu":
-            self.activation = nn.GELU(True)                            
+            self.activation = nn.GELU()                            
 
     def forward(self, x):
         for i in range(self._num_residual_layers):
@@ -92,7 +92,7 @@ class Encoder(nn.Module):
         if activation == "relu":
             self.activation = nn.ReLU(True)
         elif activation == "gelu":
-            self.activation = nn.GELU(True)
+            self.activation = nn.GELU()
 
 
     def forward(self, inputs):
@@ -147,7 +147,7 @@ class Decoder(nn.Module):
         if activation == "relu":
             self.activation = nn.ReLU(True)
         elif activation == "gelu":
-            self.activation = nn.GELU(True)
+            self.activation = nn.GELU()
 
     def forward(self, inputs):
         x = self._conv_1(inputs)
