@@ -29,3 +29,4 @@ decay : 0.99
 learning_rate : 2e-4
 
 use_norm : True
+activation : relu

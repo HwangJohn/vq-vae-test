@@ -3,13 +3,18 @@ from torch.nn import functional as F
 
 from model.vqvae import VectorQuantizer, VectorQuantizerEMA
 
+def select_activation(activation):
+    if activation == "relu":
+        return nn.ReLU(True)
+    elif activation == "gelu":
+        return nn.GELU()    
+    else:
+        raise NotImplementedError(f"activation == '{activation}' is not implemented")  
+
 class Residual(nn.Module):
     def __init__(self, in_channels, num_hiddens, num_residual_hiddens, use_norm, activation):
         super(Residual, self).__init__()
-        if activation == "relu":
-            self.activation = nn.ReLU(True)
-        elif activation == "gelu":
-            self.activation = nn.GELU()
+        self.activation = select_activation(activation)
 
         self.conv3x3 = nn.Conv2d(in_channels=in_channels,
                         out_channels=num_residual_hiddens,
@@ -49,10 +54,7 @@ class ResidualStack(nn.Module):
         self._layers = nn.ModuleList([Residual(in_channels, num_hiddens, num_residual_hiddens, use_norm, activation)
                              for _ in range(self._num_residual_layers)])
 
-        if activation == "relu":
-            self.activation = nn.ReLU(True)
-        elif activation == "gelu":
-            self.activation = nn.GELU()                            
+        self.activation = select_activation(activation)                                    
 
     def forward(self, x):
         for i in range(self._num_residual_layers):
@@ -89,10 +91,7 @@ class Encoder(nn.Module):
             self.bn2 = nn.BatchNorm2d(num_hiddens)
             self.bn3 = nn.BatchNorm2d(num_hiddens)
 
-        if activation == "relu":
-            self.activation = nn.ReLU(True)
-        elif activation == "gelu":
-            self.activation = nn.GELU()
+        self.activation = select_activation(activation)     
 
 
     def forward(self, inputs):
@@ -144,10 +143,7 @@ class Decoder(nn.Module):
                                                 kernel_size=4, 
                                                 stride=2, padding=1)
 
-        if activation == "relu":
-            self.activation = nn.ReLU(True)
-        elif activation == "gelu":
-            self.activation = nn.GELU()
+        self.activation = select_activation(activation)           
 
     def forward(self, inputs):
         x = self._conv_1(inputs)
