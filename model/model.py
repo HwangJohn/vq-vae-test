@@ -4,28 +4,45 @@ from torch.nn import functional as F
 from model.vqvae import VectorQuantizer, VectorQuantizerEMA
 
 class Residual(nn.Module):
-    def __init__(self, in_channels, num_hiddens, num_residual_hiddens):
+    def __init__(self, in_channels, num_hiddens, num_residual_hiddens, use_norm):
         super(Residual, self).__init__()
-        self._block = nn.Sequential(
-            nn.ReLU(True),
-            nn.Conv2d(in_channels=in_channels,
-                      out_channels=num_residual_hiddens,
-                      kernel_size=3, stride=1, padding=1, bias=False),
-            nn.ReLU(True),
-            nn.Conv2d(in_channels=num_residual_hiddens,
-                      out_channels=num_hiddens,
-                      kernel_size=1, stride=1, bias=False)
-        )
+        self.relu = nn.ReLU(True)
+        self.conv3x3 = nn.Conv2d(in_channels=in_channels,
+                        out_channels=num_residual_hiddens,
+                        kernel_size=3, stride=1, padding=1, bias=False),
+
+        self.conv1x1 = nn.Conv2d(in_channels=num_residual_hiddens,
+                        out_channels=num_hiddens,
+                        kernel_size=1, stride=1, bias=False)  
+
+        if use_norm:
+            self.bn1 = nn.BatchNorm2d(in_channels)
+            self.bn2 = nn.BatchNorm2d(num_residual_hiddens)
+            self._block = nn.Sequential(
+                self.conv3x3,
+                self.bn1,
+                self.relu,
+                self.conv1x1
+                self.bn1,
+                self.relu,
+            )
+        else:
+            self._block = nn.Sequential(
+                self.relu,
+                self.conv3x3,
+                self.relu,
+                self.conv1x1
+            )
     
     def forward(self, x):
         return x + self._block(x)
 
 
 class ResidualStack(nn.Module):
-    def __init__(self, in_channels, num_hiddens, num_residual_layers, num_residual_hiddens):
+    def __init__(self, in_channels, num_hiddens, num_residual_layers, num_residual_hiddens, use_norm):
         super(ResidualStack, self).__init__()
         self._num_residual_layers = num_residual_layers
-        self._layers = nn.ModuleList([Residual(in_channels, num_hiddens, num_residual_hiddens)
+        self._layers = nn.ModuleList([Residual(in_channels, num_hiddens, num_residual_hiddens, use_norm)
                              for _ in range(self._num_residual_layers)])
 
     def forward(self, x):
@@ -34,8 +51,10 @@ class ResidualStack(nn.Module):
         return F.relu(x)
 
 class Encoder(nn.Module):
-    def __init__(self, in_channels, num_hiddens, num_residual_layers, num_residual_hiddens):
+    def __init__(self, in_channels, num_hiddens, num_residual_layers, num_residual_hiddens, use_norm):
         super(Encoder, self).__init__()
+
+        self.use_norm = use_norm
 
         self._conv_1 = nn.Conv2d(in_channels=in_channels,
                                  out_channels=num_hiddens//2,
@@ -52,16 +71,35 @@ class Encoder(nn.Module):
         self._residual_stack = ResidualStack(in_channels=num_hiddens,
                                              num_hiddens=num_hiddens,
                                              num_residual_layers=num_residual_layers,
-                                             num_residual_hiddens=num_residual_hiddens)
+                                             num_residual_hiddens=num_residual_hiddens,
+                                             use_norm=self.use_norm)
+
+        self.use_norm:
+            self.bn1 = nn.BatchNorm2d(in_channels)
+            self.bn2 = nn.BatchNorm2d(num_hiddens//2)
+            self.bn3 = nn.BatchNorm2d(num_hiddens) 
 
     def forward(self, inputs):
-        x = self._conv_1(inputs)
-        x = F.relu(x)
-        
-        x = self._conv_2(x)
-        x = F.relu(x)
-        
-        x = self._conv_3(x)
+
+        if use_norm:
+            x = self._conv_1(inputs)
+            x = self.bn1(x)
+            x = F.relu(x)
+            
+            x = self._conv_2(x)
+            x = self.bn2(x)
+            x = F.relu(x)
+            
+            x = self._conv_3(x)
+            x = self.bn3(x)
+        else:
+            x = self._conv_1(inputs)
+            x = F.relu(x)
+            
+            x = self._conv_2(x)
+            x = F.relu(x)
+            
+            x = self._conv_3(x)
         return self._residual_stack(x)
 
 class Decoder(nn.Module):
@@ -100,12 +138,13 @@ class Decoder(nn.Module):
 
 class Model(nn.Module):
     def __init__(self, num_hiddens, num_residual_layers, num_residual_hiddens, 
-                 num_embeddings, embedding_dim, commitment_cost, decay=0):
+                 num_embeddings, embedding_dim, commitment_cost, decay=0, use_norm):
         super(Model, self).__init__()
         
         self._encoder = Encoder(3, num_hiddens,
                                 num_residual_layers, 
-                                num_residual_hiddens)
+                                num_residual_hiddens,
+                                use_norm)
         self._pre_vq_conv = nn.Conv2d(in_channels=num_hiddens, 
                                       out_channels=embedding_dim,
                                       kernel_size=1, 

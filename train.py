@@ -64,8 +64,10 @@ def train(cfg: DictConfig):
     commitment_cost = cfg.commitment_cost
 
     decay = cfg.decay
-
     learning_rate = cfg.learning_rate
+
+    use_norm = cfg.use_norm
+
 
     data_variance = np.var(training_data.data / 255.0)
 
@@ -102,20 +104,19 @@ def train(cfg: DictConfig):
 
     model = Model(num_hiddens, num_residual_layers, num_residual_hiddens,
                 num_embeddings, embedding_dim, 
-                commitment_cost, decay).to(device)
+                commitment_cost, decay, use_norm).to(device)
+
+
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate, amsgrad=False)
+
     model.to(device)
 
     images, _ = next(iter(validation_loader))
     writer.add_graph(model, images.to(device))
-
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate, amsgrad=False)
-
-    model.train()
     train_res_recon_error = []
     train_res_perplexity = []
- 
-
     for i in xrange(num_training_updates):
+        model.train()
         (data, _) = next(iter(training_loader))
         data = data.to(device)
         optimizer.zero_grad()
@@ -138,31 +139,26 @@ def train(cfg: DictConfig):
 
             # for valid
             model.eval()
+            with torch.no_grad():
+                (valid_originals, _) = next(iter(validation_loader))
+                valid_originals = valid_originals.to(device)
 
-            (valid_originals, _) = next(iter(validation_loader))
-            valid_originals = valid_originals.to(device)
+                vq_output_eval = model._pre_vq_conv(model._encoder(valid_originals))
+                _, valid_quantize, _, _ = model._vq_vae(vq_output_eval)
+                valid_reconstructions = model._decoder(valid_quantize)
 
-            vq_output_eval = model._pre_vq_conv(model._encoder(valid_originals))
-            _, valid_quantize, _, _ = model._vq_vae(vq_output_eval)
-            valid_reconstructions = model._decoder(valid_quantize)
+                # for tensorboard logging
+                writer.add_image('valid_reconstructions', make_grid(valid_reconstructions+0.5), i)
+                writer.add_image('valid_originals', make_grid(valid_originals+0.5), i)                           
 
-            # for tensorboard logging
-            writer.add_image('valid_reconstructions', make_grid(valid_reconstructions+0.5), i)
-            writer.add_image('valid_originals', make_grid(valid_originals+0.5), i)
+                writer.add_scalar('train/loss', loss.item(), i)
+                writer.add_scalar('train/vq_loss', vq_loss.item(), i)
+                writer.add_scalar('train/train_res_recon_error', recon_error.item(), i)
+                writer.add_scalar('train/train_res_perplexity', perplexity.item(), i)
 
-            # proj = umap.UMAP(n_neighbors=3,
-            #                 min_dist=0.1,
-            #                 metric='cosine').fit_transform(model._vq_vae._embedding.weight.data.cpu())
-            # plt.scatter(proj[:,0], proj[:,1], alpha=0.3)                            
-
-            writer.add_scalar('train/loss', loss.item(), i)
-            writer.add_scalar('train/vq_loss', vq_loss.item(), i)
-            writer.add_scalar('train/train_res_recon_error', recon_error.item(), i)
-            writer.add_scalar('train/train_res_perplexity', perplexity.item(), i)
-
-            writer.add_histogram('train/data', data, i)
-            writer.add_histogram('train/data_recon', data_recon, i)            
-            writer.add_histogram('train/_vq_vae/_embedding', model._vq_vae._embedding.weight, i)            
+                writer.add_histogram('train/data', data, i)
+                writer.add_histogram('train/data_recon', data_recon, i)            
+                writer.add_histogram('train/_vq_vae/_embedding', model._vq_vae._embedding.weight, i)            
 
 
 if __name__ == "__main__":
