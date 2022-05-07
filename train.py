@@ -67,6 +67,7 @@ def train(cfg: DictConfig):
     learning_rate = cfg.learning_rate
 
     use_norm = cfg.use_norm
+    activation = cfg.activation
 
 
     data_variance = np.var(training_data.data / 255.0)
@@ -104,7 +105,7 @@ def train(cfg: DictConfig):
 
     model = Model(num_hiddens, num_residual_layers, num_residual_hiddens,
                 num_embeddings, embedding_dim, 
-                commitment_cost, decay, use_norm).to(device)
+                commitment_cost, decay, use_norm, activation).to(device)
 
 
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, amsgrad=False)

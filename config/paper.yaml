@@ -1,0 +1,31 @@
+# https://arxiv.org/pdf/1711.00937.pdf
+# 4.1 Comparison with continuous variables
+#  As a first experiment we compare VQ-VAE with normal VAEs (with continuous variables), as well as
+# VIMCO [28] with independent Gaussian or categorical priors. We train these models using the same
+# standard VAE architecture on CIFAR10, while varying the latent capacity (number of continuous or
+# discrete latent variables, as well as the dimensionality of the discrete space K). The encoder consists
+# of 2 strided convolutional layers with stride 2 and window size 4 × 4, followed by two residual
+# 3 × 3 blocks (implemented as ReLU, 3x3 conv, ReLU, 1x1 conv), all having 256 hidden units. The
+# decoder similarly has two residual 3 × 3 blocks, followed by two transposed convolutions with stride
+# 2 and window size 4 × 4. We use the ADAM optimiser [21] with learning rate 2e-4 and evaluate
+# the performance after 250,000 steps with batch-size 128. For VIMCO we use 50 samples in the
+# multi-sample training objective.
+mode : colab
+train_batch_size : 128
+valid_batch_size : 32
+
+num_training_updates : 250000
+
+num_hiddens : 256
+num_residual_hiddens : 32
+num_residual_layers : 2
+
+embedding_dim : 64
+num_embeddings : 512
+
+commitment_cost : 0.25
+
+decay : 0.99
+learning_rate : 2e-4
+
+use_norm : True
