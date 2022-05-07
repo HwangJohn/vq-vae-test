@@ -1,4 +1,16 @@
 # vq-vae-test
+### connecting to Colab on vscode
+```python
+!pip install colab_ssh --upgrade
+
+from colab_ssh import launch_ssh_cloudflared, init_git_cloudflared
+launch_ssh_cloudflared(password="<PASSWORD>")
+
+# follow "Client machine configuration" at first time
+# follow "VSCode Remote SSH" guide
+```
+
+### 실행 방법
 ```python
 $ python train.py -cn local # local setting
 $ python train.py -cn colab # colab setting
