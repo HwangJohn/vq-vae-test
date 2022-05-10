@@ -1,6 +1,7 @@
 # vq-vae-test
 ### connecting to Colab on vscode
 ```python
+# on Colab
 !pip install colab_ssh --upgrade
 
 from colab_ssh import launch_ssh_cloudflared, init_git_cloudflared
